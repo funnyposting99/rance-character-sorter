@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Rance - Image Sorter</title>
+  <style>
+    /* ================= GLOBAL RESET ================= */
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    html, body {
+        height: 100%;
+        overflow: hidden; /* Prevent scrolling */
+    }
+
+    body {
+        font-family: sans-serif;
+        background-color: black;
+        color: #eee;
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 0; /* Optional: remove padding if it causes misalignment */
+    }
+
+    h1, h2 {
+        margin-bottom: 1rem;
+        text-align: center;
+    }
+
+    /* ================ CONTAINER ================ */
+    #container {
+        width: 100%;
+        max-width: 80%; /* up to ~900px */
+        background-color: #111;
+        padding: 1rem;
+        border-radius: 8px;
+    }
+
+    /* Progress label */
+    #lblProgress {
+        font-size: 1.2rem;
+        margin-bottom: 1rem;
+        text-align: center;
+        color: #fff;
+    }
+
+    /* ================ COMPARISON AREA ================ */
+    #compareArea {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background-color: #222;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+    }
+    
+    .imgContainer {
+        width: 40%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        cursor: pointer;
+        background: #fff;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    .imgContainer img {
+        border-radius: 4px;
+        height: auto;
+        display: block;
+        min-height: 620px;
+        min-width: 340px;
+        max-height: 620px;
+    }
+
+    /* Middle controls (Tie/Undo) */
+    #midControls {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        width: 15%;
+        height: 60vh;
+        gap: 1rem;
+    }
+    .action-button {
+        width: 100%;
+        padding: 0.75rem;
+        font-size: 1rem;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background-color 0.2s, transform 0.1s;
+    }
+    .action-button:active {
+        transform: scale(0.98);
+    }
+    #tieBtn {
+        background-color: #2196f3;
+        color: #fff;
+    }
+    #tieBtn:hover {
+        background-color: #1976d2;
+    }
+    #undoBtn {
+        background-color: #f44336;
+        color: #fff;
+    }
+    #undoBtn:hover {
+        background-color: #d32f2f;
+    }
+    .action-button:disabled {
+        background-color: #555;
+        cursor: not-allowed;
+        color: #aaa;
+    }
+
+    /* ============== RESULTS AREA ============== */
+    #resultContainer {
+        display: none;
+        width: 100%;
+        margin-top: 2rem;
+    }
+    #resultsGrid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        justify-content: center;
+        background-color: #222;
+        padding: 1rem;
+        border-radius: 8px;
+    }
+    .resultCell {
+        width: 100px;
+        height: 120px;
+        background-color: #111;
+        border: 1px solid #444;
+        border-radius: 4px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding-top: 10px;
+    }
+    .resultCell .rank {
+        font-size: 14px;
+        color: #fff;
+        margin-bottom: 5px;
+    }
+    .resultCell img {
+        width: 80px;
+        height: 80px;
+        border-radius: 4px;
+        object-fit: contain;
+    }
+
+    /* Download button */
+    #downloadBtn {
+        margin: 1rem auto;
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
+        background-color: #4caf50;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background-color 0.2s, transform 0.1s;
+        display: none; /* hidden until results are shown */
+    }
+    #downloadBtn:hover {
+        background-color: #388e3c;
+    }
+    #downloadBtn:active {
+        transform: scale(0.98);
+    }
+
+    /* ============== MOBILE TWEAKS ============== */
+    @media (max-width: 600px) {
+    #compareArea {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    .imgContainer {
+        width: 100%;
+        height: 40vh;
+    }
+    #midControls {
+        width: 100%;
+        flex-direction: row;
+        justify-content: space-around;
+        height: auto;
+    }
+    .action-button {
+        flex: 1;
+        margin: 0 0.5rem;
+    }
+    }
+  </style>
+  <!-- Include html2canvas -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body>
+
+  <div id="container">
+    <div id="lblProgress">Loading…</div>
+
+    <div id="compareArea">
+      <div class="imgContainer" id="leftContainer">
+        <img id="leftImg" src="" alt="Left image">
+      </div>
+
+      <div id="midControls">
+        <button class="action-button" id="tieBtn">Tie</button>
+        <button class="action-button" id="undoBtn">Undo</button>
+      </div>
+
+      <div class="imgContainer" id="rightContainer">
+        <img id="rightImg" src="" alt="Right image">
+      </div>
+    </div>
+
+    <div id="resultContainer">
+      <div id="resultsGrid"></div>
+      <button id="downloadBtn">Download Results as PNG</button>
+    </div>
+  </div>
+
+  <script>
+    // ================================================
+    // GLOBAL STATE
+    // ================================================
+    let items = [];             // array of “active” image-IDs (0..164) after Rance X filter
+    let N = 0;                  // number of items to sort
+
+    let lstMember = [];         // each entry is an array of indices into 'items'
+    let parent = [];            // parent[i] = index of parent sublist for lstMember[i]
+
+    let equalArr = [];          // length = N; equalArr[i] = j if items[i] tied with items[j]
+    let rec = [];               // length = N; temporary merge buffer
+
+    let cmp1, cmp2;             // indices in lstMember for the two sublists being merged
+    let head1 = 0, head2 = 0;   // pointers into lstMember[cmp1] & lstMember[cmp2]
+    let nrec = 0;               // how many have been appended into rec
+    let totalSize = 0;          // sum of sizes of all leaf sublists (for percentage)
+    let finishSize = 0;         // how many items have been merged so far
+    let numQuestion = 1;        // counts how many “battles” so far
+    let finishFlag = 0;         // 0 = sorting ongoing, 1 = sorting done
+
+    let finalOrder = [];        // final order of indices (each is an index into 'items')
+    let finalRanks = [];        // finalRanks[i] is the rank number of finalOrder[i]
+
+    // For UNDO:
+    const undoStack = [];
+
+    // ================================================
+    // UTILITY: Fisher–Yates shuffle in place
+    // ================================================
+    function shuffleArray(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+    }
+
+    // ================================================
+    // UTILITY: Return the image URL given an index into 'items'
+    // ================================================
+    function imageUrlFromItemIndex(i) {
+      return `images/${ items[i] + 1 }.png`;
+    }
+
+    // ================================================
+    // SAVE STATE (deep-copy) FOR UNDO
+    // ================================================
+    function saveState() {
+      const lstCopy = JSON.parse(JSON.stringify(lstMember));
+      const parentCopy = parent.slice();
+      const equalCopy = equalArr.slice();
+      const recCopy = rec.slice();
+
+      undoStack.push({
+        lstMember: lstCopy,
+        parent: parentCopy,
+        equalArr: equalCopy,
+        rec: recCopy,
+        cmp1, cmp2, head1, head2, nrec,
+        finishSize, numQuestion, finishFlag
+      });
+    }
+
+    // ================================================
+    // UNDO → pop last state from undoStack
+    // ================================================
+    function undo() {
+      if (undoStack.length === 0) return;
+
+      const state = undoStack.pop();
+      lstMember = state.lstMember;
+      parent = state.parent;
+      equalArr = state.equalArr;
+      rec = state.rec;
+      cmp1 = state.cmp1;
+      cmp2 = state.cmp2;
+      head1 = state.head1;
+      head2 = state.head2;
+      nrec = state.nrec;
+      finishSize = state.finishSize;
+      numQuestion = state.numQuestion;
+      finishFlag = state.finishFlag;
+
+      // If sorting was complete, revert UI
+      if (finishFlag === 1) {
+        finishFlag = 0;
+        document.getElementById('resultContainer').style.display = 'none';
+        document.getElementById('resultsGrid').innerHTML = '';
+        document.getElementById('compareArea').style.display = 'flex';
+        document.getElementById('downloadBtn').style.display = 'none';
+      }
+      showImage();
+    }
+
+    // ================================================
+    // INITIAL SPLIT (MERGE-SORT DIVIDE PHASE)
+    // ================================================
+    function startSort() {
+      lstMember = [];
+      parent = [];
+      totalSize = 0;
+
+      // 1) Create the initial “full list” = [0..N−1]
+      lstMember.push([]);
+      for (let i = 0; i < N; i++) {
+        lstMember[0].push(i);
+      }
+      parent.push(-1);
+
+      // 2) Recursively split any sublist of length ≥ 2
+      let n = 1;
+      for (let i = 0; i < n; i++) {
+        if (lstMember[i].length >= 2) {
+          const arr = lstMember[i];
+          const mid = Math.ceil(arr.length / 2);
+
+          // Left half
+          lstMember.push(arr.slice(0, mid));
+          parent.push(i);
+          totalSize += arr.slice(0, mid).length;
+          n++;
+
+          // Right half
+          lstMember.push(arr.slice(mid));
+          parent.push(i);
+          totalSize += arr.slice(mid).length;
+          n++;
+        }
+      }
+
+      // 3) Initialize merge pointers & buffers
+      equalArr = new Array(N).fill(-1);
+      rec = new Array(N).fill(0);
+      head1 = head2 = 0;
+      nrec = 0;
+      finishSize = 0;
+      numQuestion = 1;
+      finishFlag = 0;
+      undoStack.length = 0;
+
+      // 4) cmp1, cmp2 point to the last two leaves
+      cmp1 = lstMember.length - 2;
+      cmp2 = lstMember.length - 1;
+
+      // 5) Show the first “battle”
+      showImage();
+    }
+
+    // ================================================
+    // SHOW IMAGE for current “battle” (cmp1 vs. cmp2 at head1/head2)
+    // ================================================
+    function showImage() {
+      if (finishFlag === 1) return;
+
+      const idx1 = lstMember[cmp1][head1];
+      const idx2 = lstMember[cmp2][head2];
+
+      document.getElementById('leftImg').src = imageUrlFromItemIndex(idx1);
+      document.getElementById('rightImg').src = imageUrlFromItemIndex(idx2);
+
+      const pct = Math.floor((finishSize * 100) / totalSize);
+      document.getElementById('lblProgress').innerText =
+        `Round #${numQuestion} — ${pct}% sorted`;
+    }
+
+    // ================================================
+    // MERGE STEP: called when user clicks Left/Right/Tie
+    // flag < 0 → Left; flag > 0 → Right; flag = 0 → Tie
+    // ================================================
+    function sortList(flag) {
+      if (finishFlag !== 0) return;
+
+      // 1) Save state for undo
+      saveState();
+
+      // 2) If “Left” (flag < 0)
+      if (flag < 0) {
+        rec[nrec] = lstMember[cmp1][head1];
+        head1++;
+        nrec++;
+        finishSize++;
+        while (equalArr[rec[nrec - 1]] !== -1) {
+          rec[nrec] = lstMember[cmp1][head1];
+          head1++;
+          nrec++;
+          finishSize++;
+        }
+      }
+      // 3) If “Right” (flag > 0)
+      else if (flag > 0) {
+        rec[nrec] = lstMember[cmp2][head2];
+        head2++;
+        nrec++;
+        finishSize++;
+        while (equalArr[rec[nrec - 1]] !== -1) {
+          rec[nrec] = lstMember[cmp2][head2];
+          head2++;
+          nrec++;
+          finishSize++;
+        }
+      }
+      // 4) If “Tie” (flag = 0)
+      else {
+        rec[nrec] = lstMember[cmp1][head1];
+        head1++;
+        nrec++;
+        finishSize++;
+        while (equalArr[rec[nrec - 1]] !== -1) {
+          rec[nrec] = lstMember[cmp1][head1];
+          head1++;
+          nrec++;
+          finishSize++;
+        }
+        equalArr[rec[nrec - 1]] = lstMember[cmp2][head2];
+        rec[nrec] = lstMember[cmp2][head2];
+        head2++;
+        nrec++;
+        finishSize++;
+        while (equalArr[rec[nrec - 1]] !== -1) {
+          rec[nrec] = lstMember[cmp2][head2];
+          head2++;
+          nrec++;
+          finishSize++;
+        }
+      }
+
+      // 5) If one sublist is exhausted first, append remainder of the other
+      if (head1 < lstMember[cmp1].length && head2 === lstMember[cmp2].length) {
+        while (head1 < lstMember[cmp1].length) {
+          rec[nrec] = lstMember[cmp1][head1];
+          head1++;
+          nrec++;
+          finishSize++;
+        }
+      } else if (head1 === lstMember[cmp1].length && head2 < lstMember[cmp2].length) {
+        while (head2 < lstMember[cmp2].length) {
+          rec[nrec] = lstMember[cmp2][head2];
+          head2++;
+          nrec++;
+          finishSize++;
+        }
+      }
+
+      // 6) If both sublists are fully merged, write rec[] back into parent
+      if (head1 === lstMember[cmp1].length && head2 === lstMember[cmp2].length) {
+        const p = parent[cmp1];
+        const mergedLen = lstMember[cmp1].length + lstMember[cmp2].length;
+        for (let i = 0; i < mergedLen; i++) {
+          lstMember[p][i] = rec[i];
+        }
+        lstMember.pop();
+        lstMember.pop();
+        parent.pop();
+        parent.pop();
+
+        cmp1 -= 2;
+        cmp2 -= 2;
+
+        head1 = head2 = 0;
+        nrec = 0;
+        for (let i = 0; i < N; i++) rec[i] = 0;
+      }
+
+      // 7) If no more pairs to merge → done
+      if (cmp1 < 0) {
+        finishFlag = 1;
+        showResult();
+        return;
+      }
+
+      // 8) Otherwise, update and show next pair
+      numQuestion++;
+      showImage();
+    }
+
+    // ================================================
+    // WHEN SORTING FINISHES → BUILD FINAL GRID
+    // ================================================
+    function showResult() {
+      document.getElementById('compareArea').style.display = 'none';
+      finalOrder = lstMember[0].slice();
+      finalRanks = new Array(N);
+
+      let ranking = 1, sameRank = 1;
+      for (let i = 0; i < N; i++) {
+        finalRanks[i] = ranking;
+        if (i < N - 1 && equalArr[finalOrder[i]] === finalOrder[i + 1]) {
+          sameRank++;
+        } else {
+          ranking += sameRank;
+          sameRank = 1;
+        }
+      }
+
+      const grid = document.getElementById('resultsGrid');
+      for (let i = 0; i < N; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'resultCell';
+        const rankDiv = document.createElement('div');
+        rankDiv.className = 'rank';
+        rankDiv.innerText = finalRanks[i];
+        const thumb = document.createElement('img');
+        thumb.src = imageUrlFromItemIndex(finalOrder[i]);
+        cell.appendChild(rankDiv);
+        cell.appendChild(thumb);
+        grid.appendChild(cell);
+      }
+
+      document.getElementById('resultContainer').style.display = 'block';
+      document.getElementById('downloadBtn').style.display = 'block';
+      document.getElementById('lblProgress').innerText = 'Sorting Complete!';
+    }
+
+    // ================================================
+    // DOWNLOAD FINAL GRID AS PNG via html2canvas
+    // ================================================
+    function downloadGridAsPNG() {
+      const resultsGrid = document.getElementById('resultsGrid');
+      html2canvas(resultsGrid, { scale: 2 }).then(canvas => {
+        canvas.toBlob(blob => {
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          link.download = 'results.png';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }, 'image/png');
+      });
+    }
+
+    // ================================================
+    // ON PAGE LOAD: Prompt Rance X filter, initialize items[], shuffle, then start
+    // ================================================
+    window.addEventListener('DOMContentLoaded', () => {
+      const omitSet = new Set([
+         4,  5, 15, 24, 35, 38,
+        44, 46, 51, 56, 62, 67,
+        70, 73, 87, 91, 95, 98,
+       100,105,107,110,118, 20,
+       119,120,126,127,132,134,
+       135,136,140,141, 87, 19,
+       146,147,149,150,151,152,
+       153,155,157,164
+      ]);
+
+      const includeRanceX = window.confirm(
+        "Include characters from Rance X?\n\n" +
+        "OK = Yes, Cancel = No"
+      );
+
+      items = [];
+      for (let i = 0; i < 165; i++) {
+        if (!includeRanceX && omitSet.has(i + 1)) continue;
+        items.push(i);
+      }
+
+      // Shuffle the items array before sorting
+      shuffleArray(items);
+
+      N = items.length;
+
+      equalArr = new Array(N).fill(-1);
+      rec = new Array(N).fill(0);
+
+      document.getElementById('leftContainer').addEventListener('click', () => {
+        sortList(-1);
+      });
+      document.getElementById('rightContainer').addEventListener('click', () => {
+        sortList(1);
+      });
+      document.getElementById('tieBtn').addEventListener('click', () => {
+        sortList(0);
+      });
+      document.getElementById('undoBtn').addEventListener('click', undo);
+      document.getElementById('downloadBtn').addEventListener('click', downloadGridAsPNG);
+
+      startSort();
+    });
+  </script>
+
+</body>
+</html>
